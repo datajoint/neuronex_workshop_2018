@@ -1,0 +1,22 @@
+{
+    "database.host": "workshop-db.datajoint.io",
+    "database.password": null,
+    "database.user": null,
+    "database.port": 3306,
+    "connection.init_function": null,
+    "database.reconnect": false,
+    "loglevel": "INFO",
+    "safemode": true,
+    "display.limit": 30,
+    "display.width": 14,
+    "display.show_tuple_count": true,
+    "external": {
+        "protocol": "s3",
+        "endpoint": "s3.amazonaws.com",
+        "bucket": "djworkshop",
+        "location": "workshop",
+        "access_key": "AKIAIHIST66KWY6BSWCQ",
+        "secret_key": "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"
+    }
+}
+
