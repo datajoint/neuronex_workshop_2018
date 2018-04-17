@@ -50,22 +50,15 @@ session_data = [
   'experimenter': 'Edgar Y. Walker',
   'mouse_id': 0,
   'session_date': "2017-05-19"},
- {'experiment_setup': 100,
-  'experimenter': 'Jacob Reimer',
-  'mouse_id': 2,
-  'session_date': "2018-01-15"},
  {'experiment_setup': 1,
   'experimenter': 'Fabian Sinz',
   'mouse_id': 5,
   'session_date': "2017-01-05"},
- {'experiment_setup': 101,
-  'experimenter': 'Jacob Reimer',
-  'mouse_id': 11,
-  'session_date': "2018-01-15"},
  {'experiment_setup': 100,
   'experimenter': 'Jacob Reimer',
   'mouse_id': 100,
-  'session_date': "2017-05-25"}]
+  'session_date': "2017-05-25"}
+]
 
 Mouse.insert(mouse_data, skip_duplicates=True)
 Session.insert(session_data, skip_duplicates=True)
