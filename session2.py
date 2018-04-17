@@ -15,7 +15,6 @@ class Mouse(dj.Manual):
     ---
     dob=null             : date                         # date of birth
     sex="unknown"        : enum('M','F','unknown')      # sex
-    mouse_notes=""       : varchar(4096)                # other comments and distinguishing features
     """
     
 @schema
