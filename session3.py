@@ -80,7 +80,7 @@ class SpikeDetectionParam(dj.Lookup):
     ---
     threshold: float   # threshold for spike detection
     """
-    contents = [(0, 0.5), (1, 0.9)]
+    contents = [(0, 0.5), (1, 0.9), (2, 2.0)]
     
     
 @schema
