@@ -1,7 +1,8 @@
 import datajoint as dj
 import numpy as np
 
-username = dj.config['database.user']
+# fail-safe user name retrieval
+username = dj.conn().conn_info['user']
 schema = dj.schema('{}_pipeline_session3'.format(username))
 
 
