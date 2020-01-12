@@ -1,5 +1,8 @@
+cd("/Users/carlos/Github/datajoint/neuronex_workshop_2018/julia")
+
 using PyCall
 dj = pyimport("datajoint")
+include("d2j.jl")  # this is the code that converts datajoint fetch() results into Julia types
 
 # RUN THE FOLLOWING ONLY ONCE:  Next time tou start up tou won't need it, the info will be saved in the local file
 #
@@ -10,7 +13,9 @@ dj = pyimport("datajoint")
 
 dj.conn(reset=true)
 
-schema = dj.schema("brody_tutorial2", py"locals()")
+schema_name = "brody_tutorial3"
+
+schema = dj.schema(schema_name, py"locals()")
 
 
 py"""
@@ -28,17 +33,19 @@ mouse = py"Mouse()"
 
 
 mouse.insert([
-        Dict("mouse_id"=>1, "dob"=>"2020-01-01", "sex"=>"M"),
-        Dict("mouse_id"=>2, "dob"=>"2020-01-02", "sex"=>"F"),
-        Dict("mouse_id"=>3, "dob"=>"2020-01-03", "sex"=>"U"),
-        Dict("mouse_id"=>5, "dob"=>"2020-01-05", "sex"=>"M"),
-        Dict("mouse_id"=>6, "dob"=>"2020-01-05", "sex"=>"F"),
-        Dict("mouse_id"=>7, "dob"=>"2020-01-05", "sex"=>"F")
+        Dict("mouse_id"=>0,   "dob"=>"2010-01-01", "sex"=>"M"),
+        Dict("mouse_id"=>1,   "dob"=>"2020-01-01", "sex"=>"M"),
+        Dict("mouse_id"=>2,   "dob"=>"2020-01-02", "sex"=>"F"),
+        Dict("mouse_id"=>3,   "dob"=>"2020-01-03", "sex"=>"U"),
+        Dict("mouse_id"=>5,   "dob"=>"2020-01-05", "sex"=>"M"),
+        Dict("mouse_id"=>6,   "dob"=>"2020-01-05", "sex"=>"F"),
+        Dict("mouse_id"=>7,   "dob"=>"2020-01-05", "sex"=>"F"),
+        Dict("mouse_id"=>100, "dob"=>"2017-01-05", "sex"=>"F")
         ], skip_duplicates=true)
 
 
 py"""
-schema = $dj.schema('brody_tutorial2', locals())
+schema = $dj.schema($schema_name, locals())
 
 @schema
 class Session($dj.Manual):
@@ -56,43 +63,44 @@ class Session($dj.Manual):
 session = py"Session"()
 
 data = Dict(
-  "mouse_id" => 1,
+  "mouse_id" => 0,
   "session_date" => "2017-05-15",
   "experiment_setup" => 0,
   "experimenter" => "Edgar Y. Walker"
 )
 
+##
 session.insert1(data, skip_duplicates=true)
-
+## 
 
 data = [
     Dict(
-  "mouse_id" => 1,
-  "session_date" => "2020-05-15",
+  "mouse_id" => 0,
+  "session_date" => "2017-05-19",
   "experiment_setup" => 0,
   "experimenter" => "Boaty McBoatFace"
     ),
     Dict(
-  "mouse_id" => 3,
-  "session_date" => "2020-05-15",
+  "mouse_id" => 100,
+  "session_date" => "2017-05-25",
+  "experiment_setup" => 0,
+  "experimenter" => "Boaty McBoatFace"
+    ),
+    Dict(
+  "mouse_id" => 100,
+  "session_date" => "2017-06-01",
+  "experiment_setup" => 0,
+  "experimenter" => "Boaty McBoatFace"
+    ),
+    Dict(
+  "mouse_id" => 5,
+  "session_date" => "2017-01-05",
   "experiment_setup" => 0,
   "experimenter" => "Boaty McBoatFace"
     )
+
     ]
 
 session.insert(data, skip_duplicates=true)
 
-
-py"""
-schema = $dj.schema('brody_tutorial2', locals())
-
-@schema
-class Doodle($dj.Manual):
-    definition = '''
-    id :       int
-    ---
-    activity: longblob    # electric activity of the neuron
-    '''
-"""
-
-doodle = py"Doodle"()
+session
