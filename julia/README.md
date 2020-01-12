@@ -6,7 +6,8 @@ This is an initial attempt: the goal is to be able to set up and work with DataJ
 
 While the elegance is low, the approach seems to work. People who want to live in Julia but interoperate with others using DataJoint with Matlab or Python will be able to do so.
 
-The tutorials are a work in progress right now; when done, you should be able to simply start from scratch, in Julia, with tutorial 0, and go on from there.
+The tutorials are a work in progress right now; when done, you should be able to simply start from scratch, in Julia, with tutorial 0, and go on from there. We do assume that there is already set up a DataJoint server that you have access to.
+
 
 
 
