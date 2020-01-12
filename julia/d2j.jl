@@ -63,7 +63,7 @@ function d2j(x)
             for i=1:nrows
                   for j=1:ncols
                         # These get statements do autoconvert to Julia data types
-                        out[i,j] = get(get(x, i-1), j-1)
+                        out[i,j] = d2j(get(get(x, i-1), j-1))
                         # Except for integers it seems, which stay as PyObjects but can be
                         # converted as follows:
                         if typeof(out[i,j]) <: PyObject && py"hasattr($(out[i,j]), 'flatten')"
@@ -78,7 +78,9 @@ function d2j(x)
                 out = convert(Array{my_type_list[1]}, out)
             end
             return out
-      elseif typeof(x) <: PyObject && x.__class__.__name__ == "list" && !isempty(x)
+      elseif typeof(x) <: PyObject &&
+         (x.__class__.__name__ == "list" || x.__class__.__name__ == "void" ) &&
+         !isempty(x)
             out = Array{Any}(undef, length(x))
             for i=1:length(x)
                 out[i] = d2j(x[i])
@@ -105,7 +107,7 @@ function d2j(x)
                         end
                   end
             end
-      elseif typeof(x) <: Array && eltype(x) <: Array
+      elseif typeof(x) <: Array && (eltype(x) <: Array || eltype(x) <: Any)
             # We have multiple columns requested as multiple outputs
             # We'll convert each one separately
             out = Array{Any}(undef, length(x))
