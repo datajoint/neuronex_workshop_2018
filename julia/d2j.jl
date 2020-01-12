@@ -58,6 +58,10 @@ function d2j(x)
             # This means different columns will have different data types
             nrows = length(x)
             ncols = length(get(x, 0))
+            if ncols == 1 && py"hasattr"(x, "flatten")
+                  out = x.flatten()
+                  return out
+            end
             out = Array{Any}(undef, nrows, ncols)
             my_type_list = Array{Type}(undef, 1, 0)
             for i=1:nrows
@@ -107,7 +111,7 @@ function d2j(x)
                         end
                   end
             end
-      elseif typeof(x) <: Array && (eltype(x) <: Array || eltype(x) <: Any)
+      elseif typeof(x) <: Array && (eltype(x) <: Array || eltype(x) == Any)
             # We have multiple columns requested as multiple outputs
             # We'll convert each one separately
             out = Array{Any}(undef, length(x))
