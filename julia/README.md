@@ -4,9 +4,9 @@ This directory is an attempt to take the tutorial material from [Edgar Walker's 
 
 The goal here is to be able to set up and work with DataJoint from Julia as quickly as possible. No attempts at elegance or efficiency are made. The main approach is to use Julia's [PyCall.jl](https://github.com/JuliaPy/PyCall.jl) package, which allows interoperability between Python and Julia, so as to make all the necessary Python function calls from within Julia.
 
-While the elegance is low, the approach seems to work. People who want to live in Julia but interoperate with others using DataJoint with Matlab or Python will be able to do so.
+While the elegance could be greater, [PyCall.jl](https://github.com/JuliaPy/PyCall.jl) is powerful enough that it works pretty well. People who want to live in Julia but interoperate with others using DataJoint with Matlab or Python will be able to do so.
 
-The tutorials are a work in progress right now; when done, you should be able to simply start from scratch, in Julia, with tutorial 0, and go on from there. We do assume that there is already set up a DataJoint server that you have access to.
+The tutorials are a work in progress right now; when done, you should be able to simply start from scratch, in Julia, with tutorial 0, and go on from there. We do assume that you have already set up a DataJoint server that you have access to.
 
 
 
@@ -15,4 +15,4 @@ The tutorials are a work in progress right now; when done, you should be able to
 # Known Issues
 
 * While Python function calls that use dialog boxes work fine within a Julia REPL in the terminal or in Atom, they cause an error in Julia Jupyter notebooks.  This means that in a Julia Jupyter notebook, `delete()` cannot be called without setting `config`'s `safemode` to false, and `conn()` also cannot be called without setting the username and password into the local config file first.
-* displaying the ERD works in Julia Jupyter notebooks, but does not work in Julia REPL at terminal or Atom
+* displaying the ERD works in Julia Jupyter notebooks, but does not work in Julia REPL at terminal or Atom. (Currently it's not working for me in Python from the terminal either.)
