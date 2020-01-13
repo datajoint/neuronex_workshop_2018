@@ -15,4 +15,4 @@ The tutorials are a work in progress right now; when done, you should be able to
 # Known Issues
 
 * While Python function calls that use dialog boxes work fine within a Julia REPL in the terminal or in Atom, they cause an error in Julia Jupyter notebooks.  This means that in a Julia Jupyter notebook, `delete()` cannot be called without setting `config`'s `safemode` to false, and `conn()` also cannot be called without setting the username and password into the local config file first.
-* displaying the ERD works in Julia Jupyter notebooks, but does not work in Julia REPL at terminal or Atom
+* displaying the ERD works in Julia Jupyter notebooks, but does not work in Julia REPL at terminal or Atom. (Currently it's not working for me in Python from the terminal either.)
