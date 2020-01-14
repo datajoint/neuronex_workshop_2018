@@ -5,3 +5,5 @@ __pycache__/
 *.pyc
 .ipynb_checkpoints/
 dj_local_conf.json
+
+julia/setup.jl
