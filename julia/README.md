@@ -11,13 +11,13 @@ While the elegance could be greater, [PyCall.jl](https://github.com/JuliaPy/PyCa
 For example, **this datajoint Python code**
 
 ```
-((Mouse() and 'dob = "2017-05-15"') * Session).fetch()
+((Mouse() & 'dob = "2017-05-15"') * Session).fetch()
 ```
 
-is this functionally identical, and almost syntatically identical, to **this datajoint Julia code**
+is functionally identical, and almost syntatically identical, to **this datajoint Julia code**
 
 ```
-((Mouse() and "dob = '2017-05-15'") * Session).fetch()
+((Mouse() & "dob = '2017-05-15'") * Session).fetch()
 ```
 
 And **this datajoint Python code**
@@ -48,7 +48,7 @@ becomes this pretty similar **datajoint Julia code**
     """
     
     function make(self, key)
-        filename = "../data/data_$(key["mouse_id"])_$(key["session_date"]).npy"
+        filename = "data/data_$(key["mouse_id"])_$(key["session_date"]).npy"
         key["activity"] = npzread(filename)
         self.insert1(key)
         println("Populated a neuron for mouse_id=$(key["mouse_id"]) on session_date=$(key["session_date"])")
