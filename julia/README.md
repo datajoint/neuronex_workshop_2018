@@ -54,7 +54,7 @@ becomes this pretty similar **datajoint Julia code**
         println("Populated a neuron for mouse_id=$(key["mouse_id"]) on session_date=$(key["session_date"])")
     end
 end
-Neuron = d2jDecorate(Neuron)
+Neuron = d2jDecorate(Neuron, schema)
 ```
 
 
