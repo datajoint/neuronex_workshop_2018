@@ -75,3 +75,14 @@ Neuron = d2jDecorate(Neuron, schema)
      * Done
   * (2) ~overload the Python function calls that need dialog boxes with Julia functions, so that they not only play nice in REPLs but also in Jupyter notebooks.  These functions include `dj.conn()`, `dj.set_password`, `dj.delete()`, and `dj.drop()`.  One idea would be to start a pull request to modify datajoint's code for those Python functions so that optional parameters can supply what the dialog boxes would have ask for, and thus avoid the use of Python dialog boxes.~
      * Done except for `dj.set_password()` and `table.delete()`. And `table.drop()?`
+     
+     
+# Change Log
+
+### 2020-01-17
+
+* Moved everything into a module, `DataJoint2Julia`, and now decorating the necessary datajoint Python functions so as to make it all more transparent to the user
+* `d2j()` greatly improved, now fully recursive, uses multiple dispatch, and also covers `Dict()` cases
+* decoration of tables with a schema, and `table.fetch()` decoration now all happen within a single call to `d2jDecorate()`
+* `dj.conn()`, `schema.drop()` now decorated so dialog boxes are in Julia and don't crash in Julia Jupyter notebooks
+
