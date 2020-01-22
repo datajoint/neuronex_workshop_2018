@@ -17,7 +17,7 @@ For example, **this datajoint Python code**
 is functionally identical, and almost syntatically identical, to **this datajoint Julia code**
 
 ```
-((Mouse() & "dob = '2017-05-15'") * Session).fetch()
+((Mouse() & "dob = '2017-05-15'") * Session).jfetch()
 ```
 
 And **this datajoint Python code**
@@ -72,12 +72,18 @@ Neuron = d2jDecorate(Neuron, schema)
    * Done
 * We should decorate each table class in Julia (in addition and on top of decorating with `schema` in Python), so as to 
   * (1) ~automatically wrap `fetch()` calls in `d2j()` to return Julia types;~
-     * Done
+     * Done - decorating fetch() was not a good idea becaue it is called multiple times internally. Solution: new jfetch method
   * (2) ~overload the Python function calls that need dialog boxes with Julia functions, so that they not only play nice in REPLs but also in Jupyter notebooks.  These functions include `dj.conn()`, `dj.set_password`, `dj.delete()`, and `dj.drop()`.  One idea would be to start a pull request to modify datajoint's code for those Python functions so that optional parameters can supply what the dialog boxes would have ask for, and thus avoid the use of Python dialog boxes.~
-     * Done except for `dj.set_password()` and `table.delete()`. And `table.drop()?`
+     * Done except for `dj.set_password()`, `table.delete()`, and `table.drop()?`
      
      
 # Change Log
+
+### 2020-01-22
+
+* important action: internally, `d2jDecorate()` now always call datajoint's `schema` with `context=locals()` explicitly defined. When this parameters is left empty, the `locals()` can be gleaned in Python, but could not be gleaned from within the `PyCall` Python environment, so we needed to specify them explicitly. Now done.
+* Figured out how to decorate a Python `__call__` method from Julia, but that turns out not to be a good idea for `fetch()` because it is called internally so often. New `jfetch()` method implemented instead.  
+* `d2jDecorate()` moved inside the Module: solution for `dj.ERD()` is to evaluate inside the module namespace.
 
 ### 2020-01-17
 
