@@ -63,7 +63,7 @@ Neuron = d2jDecorate(Neuron, schema)
 
 * ~While Python function calls that use dialog boxes work fine within a Julia REPL in the terminal or in Atom, they cause an error in Julia Jupyter notebooks.  This means that in a Julia Jupyter notebook, `delete()` and `drop()` cannot be called without setting `config`'s `safemode` to false, `conn()` also cannot be called without setting the username and password into the local config file first, and `set_password()` cannot be called at all (you need to do it from a REPL).~
 
-   * This issue has been now partially resolved -- `table.delete()` and `dj.set_password()` still to go, but in progress
+   * This issue has been now partially resolved -- `table.delete()`, `table.drop()` and `dj.set_password()` still to go, but in progress
 
 * displaying the ERD works in Julia Jupyter notebooks, but does not work in Julia REPL at terminal or Atom. (Currently it's not working for me in Python from the terminal either.)
 
