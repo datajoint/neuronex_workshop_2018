@@ -67,10 +67,10 @@ function d2j(x::PyObject)
             shape = x.shape
             # if this is a vector, try to flatten to see if that
             # converts it from PyObject.
-            if length(shape)==1 && py"hasattr"(x, "flatten")
+            if (length(shape)==1 || (length(shape)==2 && any(shape.==1))) && py"hasattr"(x, "flatten")
                   # Let'see if this does it for us:
                   out = x.flatten()
-                  if !(typeof(x) <: PyObject)
+                  if !(typeof(out) <: PyObject)
                         # No longer a PyObject, we might be done!
                         # we'll go through d2j() again just in case
                         # the elements of out need conversion, but otherwise
