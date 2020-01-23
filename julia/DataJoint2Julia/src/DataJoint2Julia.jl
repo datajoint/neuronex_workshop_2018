@@ -3,11 +3,12 @@ module DataJoint2Julia
 using PyCall
 import Dates
 
-export dj, d2j, user_choice, d2jDecorate, my_input
+export dj, d2j, julia_user_choice, d2jDecorate, my_input, decorateMethod
 
 const dj             = PyNULL()
 const origERD        = PyNULL()
 
+decorateMethod       = PyNULL()
 include("d2j.jl")
 
 
@@ -52,6 +53,8 @@ end
 
 # =========== decorating Python Class methods ===============
 
+
+function declarePythonEnvironmentFunctions()
 """
 Decoration of Python class Methods should happen within the Python
 environment, because it is Python that knows that class Methods, when
@@ -79,9 +82,15 @@ def __decorateMethod(origMethod, *, newMethod=None, preMethod=None, postMethod=N
 
    :param     origMethod     The original class method to be decorated
 
+   :kw_param  newMethod      If other than None, should be a function that can
+                             take self, followed by whatever arguments origMethod
+                             takes.  When this is not None, preMethod and postMethod
+                             are ignored, and the final output of the decoratedMethod
+                             is the output of newMethod
+
    :kw_param  preMethod      If other than None, should be a function that can
                              take self, followed by whatever arguments origMethod
-                             Any outputs from this function are ignored.
+                             takes. Any outputs from this function are ignored.
 
    :kw_param  postMethod     If other than None, should be a function that can
                              take self, followed by whatever output the origMethod
@@ -94,12 +103,15 @@ def __decorateMethod(origMethod, *, newMethod=None, preMethod=None, postMethod=N
 
    EXAMPLE CALL (within Python environment):
 
-      Example.method = decorateMethod(Example.method_,  \
+      Example.method = __decorateMethod(Example.method_,  \
       preMethod =lambda self,      *args, **kwargs: print("I'm pre-decorated with self = ", self) \
       postMethod=lambda self, out, *args, **kwargs: print("I'm post-ddecorated with out = ", out))
 
    '''
    def decorated(self, *args, **kwargs):
+      if newMethod != None:
+          return newMethod(self, *args, **kwargs)
+
       if preMethod != None:
          preMethod(self, *args, **kwargs)
       out = origMethod(self, *args, **kwargs)
@@ -108,10 +120,12 @@ def __decorateMethod(origMethod, *, newMethod=None, preMethod=None, postMethod=N
       else:
          newout = postMethod(self, out, *args, **kwargs)
          return newout
+
    return decorated
 
 """
 
+end
 
 
 
@@ -227,7 +241,7 @@ function connDecorate(origconn)
 end
 
 """
-function user_choice(prompt::String, choices=("yes", "no"); default=nothing)
+function julia_user_choice(prompt::String, choices=("yes", "no"); default=nothing)
 
 Prompts the user for confirmation.  The default value, if any, is capitalized.
 :param prompt: Information to display to the user.
@@ -236,7 +250,7 @@ Prompts the user for confirmation.  The default value, if any, is capitalized.
 :return: the user's choice, guaranteed to be in lower case.
 
 """
-function user_choice(prompt::String, choices=("yes", "no"); default=nothing)
+function julia_user_choice(prompt::String, choices=("yes", "no"); default=nothing)
     @assert default==nothing || any(default .== choices) "default must be one of the choices"
     prompt = prompt * " Z["
     for ch in choices
@@ -281,7 +295,7 @@ function preSchemaDrop(self, force=false, vars... ; kwargs...)
     end
     # If we're in safemode and not forced, prompt the user whether this is ok:
     if !force && dj.config.__getitem__("safemode")
-        if user_choice("Proceed to delete entire schema `$(self.database)` ?", default="no") == "no"
+        if julia_user_choice("Proceed to delete entire schema `$(self.database)` ?", default="no") == "no"
             return false
         end
     end
@@ -303,24 +317,42 @@ end
 
 
 function __init__()
+    declarePythonEnvironmentFunctions()
+    copy!(decorateMethod, py"__decorateMethod")
+
     # When experimenting, we use our local datajoint. Remove the next
     # line to use the system datajoint.
-    # pushfirst!(PyVector(pyimport("sys")."path"), "../../datajoint-python")
+    pushfirst!(PyVector(pyimport("sys")."path"), "../../datajoint-python")
     # Next line is PyCall,jl trick for persistent variables in precompiled modules
     copy!(dj, pyimport("datajoint"))
     copy!(origERD, dj.ERD)
+
+    # Put datajointJulia Python package into the path
+    pushfirst!(PyVector(pyimport("sys")."path"), "./DataJoint2Julia/src/")
+    Jdj = pyimport("datajointJulia")
+
+    py"""
+    def newTableDrop(self, *args, **kwargs):
+         $Jdj.table.drop(self, *args, user_choice_fn = $julia_user_choice, **kwargs)
+
+    def newTableDelete(self, *args, **kwargs):
+        $Jdj.table.delete(self, *args, user_choice_fn = $julia_user_choice, **kwargs)
+
+    """
+    dj.table.Table.drop   = py"newTableDrop"
+    dj.table.Table.delete = py"newTableDelete"
 
     # Do dj.conn user dialogs in Julia:
     dj.conn = decorateFunction(dj.conn, preFunction = connCheckUserDialogItems)
 
     # Replace Python user_choice() with equivalent Julia user_choice(),
     # to avoid issues in Jupyter notebooks:
-    dj.utils.user_choice = user_choice
+    # dj.utils.user_choice = user_choice
     # And reload dj modules that use user_choice(), so they now point to the
     # new version of the function:
-    pyimport("importlib")."reload"(dj.admin)
-    pyimport("importlib")."reload"(dj.table)
-    pyimport("importlib")."reload"(dj.migrate)
+    # pyimport("importlib")."reload"(dj.admin)
+    # pyimport("importlib")."reload"(dj.table)
+    # pyimport("importlib")."reload"(dj.migrate)
 
     # datajoint imports submodule schema.py, but then from there imports
     # class Schema as schema; this hides the submodule name and we cannot
@@ -346,12 +378,11 @@ function __init__()
     py"""
     def __jfetch(self, *args, **kwargs):
        return $d2j(($dj.fetch.Fetch(self))(*args, **kwargs))
-
     setattr($dj.expression.QueryExpression, 'jfetch', __jfetch)
 
+    # same for jfetch1() and fetch1()
     def __jfetch1(self, *args, **kwargs):
        return $d2j(($dj.fetch.Fetch1(self))(*args, **kwargs))
-
     setattr($dj.expression.QueryExpression, 'jfetch1', __jfetch1)
 
     """
