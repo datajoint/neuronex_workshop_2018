@@ -3,7 +3,8 @@ module DataJoint2Julia
 using PyCall
 import Dates
 
-export dj, d2j, julia_user_choice, d2jDecorate, my_input, decorateMethod
+export dj, d2j, julia_user_choice, julia_getpass, julia_input
+export d2jDecorate, decorateMethod
 
 const dj             = PyNULL()
 const origERD        = PyNULL()
@@ -252,7 +253,7 @@ Prompts the user for confirmation.  The default value, if any, is capitalized.
 """
 function julia_user_choice(prompt::String, choices=("yes", "no"); default=nothing)
     @assert default==nothing || any(default .== choices) "default must be one of the choices"
-    prompt = prompt * " Z["
+    prompt = prompt * " ["
     for ch in choices
         prompt = prompt * (ch==default ? titlecase(ch) : ch) * ", "
     end
@@ -270,40 +271,35 @@ function julia_user_choice(prompt::String, choices=("yes", "no"); default=nothin
 end
 
 
-function my_input(prompt::String="")
+"""
+julia_input(prompt::String="")
+
+prints the prompt to stdout, then waits for a response on console from user,
+returns that string (leading and trailing whitespace removed)
+"""
+function julia_input(prompt::String="")
     print(prompt)
     return chomp(readline())
 end
 
 
 """
-preSchemaDrop(self, force=false, vars... ; kwargs...)
+julia_getpass(prompt::String="")
 
-self should be a schema object. Returns true if ok to drop the schema
-from the MySQL server; returns false if not.
+prints the prompt to stdout, then waits for a response on console from user,
+as the user types that response is hiffen; returns the string typed in by the
+user (leading and trailing whitespace removed)
 """
-function preSchemaDrop(self, force=false, vars... ; kwargs...)
-    # if the schema doesn't even exist on the server, do nothing, return:
-    if !self.exists
-        # from schema.py:
-        py"""
-        import logging
-        logger = logging.getLogger('datajoint.schema')
-        logger.info("Schema named `{database}` does not exist. Doing nothing.".format(database=$self.database))
-        """
-        return false
-    end
-    # If we're in safemode and not forced, prompt the user whether this is ok:
-    if !force && dj.config.__getitem__("safemode")
-        if julia_user_choice("Proceed to delete entire schema `$(self.database)` ?", default="no") == "no"
-            return false
-        end
-    end
-    # ok, all is good, go ahead and drop:
-    return true
+function julia_getpass(;prompt::String="Password")
+    sb = Base.getpass(prompt)      # put user text into secret buffer
+    ans = chomp(read(sb, String))  # turn that into a string
+    Base.shred!(sb)    # thus losing all security, then shred secret buffer to rpevent warning message
+    return ans
 end
-
-
+# And also allow the prompt as a positional argument
+function julia_getpass(prompt::String)
+    return julia_getpass(prompt=prompt)
+end
 
 """
 When evaluating the ERD, it should be done in the same Python namespace
@@ -333,40 +329,39 @@ function __init__()
 
     py"""
     def newTableDrop(self, *args, **kwargs):
-         $Jdj.table.drop(self, *args, user_choice_fn = $julia_user_choice, **kwargs)
+         $Jdj.table.Table.drop(self, *args, user_choice_fn = $julia_user_choice, **kwargs)
 
     def newTableDelete(self, *args, **kwargs):
-        $Jdj.table.delete(self, *args, user_choice_fn = $julia_user_choice, **kwargs)
+        $Jdj.table.Table.delete(self, *args, user_choice_fn = $julia_user_choice, **kwargs)
+
+    def newTableAlter(self, *args, **kwargs):
+        $Jdj.table.Table.alter(self, *args, user_choice_fn = $julia_user_choice, **kwargs)
 
     """
     dj.table.Table.drop   = py"newTableDrop"
     dj.table.Table.delete = py"newTableDelete"
+    dj.table.Table.alter  = py"newTableAlter"
 
-    # Do dj.conn user dialogs in Julia:
-    dj.conn = decorateFunction(dj.conn, preFunction = connCheckUserDialogItems)
-
-    # Replace Python user_choice() with equivalent Julia user_choice(),
-    # to avoid issues in Jupyter notebooks:
-    # dj.utils.user_choice = user_choice
-    # And reload dj modules that use user_choice(), so they now point to the
-    # new version of the function:
-    # pyimport("importlib")."reload"(dj.admin)
-    # pyimport("importlib")."reload"(dj.table)
-    # pyimport("importlib")."reload"(dj.migrate)
-
-    # datajoint imports submodule schema.py, but then from there imports
-    # class Schema as schema; this hides the submodule name and we cannot
-    # reload it. So, do schema.drop() user dialogs in Julia:
     py"""
-    def __newSchemaDrop(origSchemaDrop):
-        def decorated(self, force=False, *args, **kwargs):
-            flag = $preSchemaDrop(self, force, *args, **kwargs)
-            if not flag:
-                return
-            origSchemaDrop(self, True, *args, **kwargs)
-        return decorated
+    def newSchemaDrop(self, *args, **kwargs):
+         $Jdj.schema.Schema.drop(self, *args, user_choice_fn = $julia_user_choice, **kwargs)
+
     """
-    dj.schema.drop = py"__newSchemaDrop"(dj.schema.drop)
+    dj.schema.drop = py"newSchemaDrop"
+
+    # The following are not methods of objects, so things are much simpler
+    # we don't need to worry about "self" and we can stay within Julia:
+    dj.conn = (vars...; kwargs...) ->
+        Jdj.connection.conn(vars...; input_fn=julia_input, getpass_fn=julia_getpass, kwargs...)
+    dj.set_password = (vars...; kwargs...) ->
+        Jdj.admin.set_password(vars...; getpass_fn=julia_getpass, user_choice_fn=julia_user_choice, kwargs...)
+    dj.kill = (vars...; kwargs...) ->
+        Jdj.admin.kill(vars...; input_fn=julia_input, kwargs...)
+    dj.utils.user_choice = (vars...; kwargs...) ->
+        Jdj.utils.user_choice(vars...; input_fn=julia_input, kwargs...)
+    dj.migrate.migrate_dj011_external_blob_storage_to_dj012 = (vars...; kwargs...) ->
+        Jdj.migrate.migrate_dj011_external_blob_storage_to_dj012(vars...; user_choice_fn=julia_user_choice, kwargs...)
+
 
     # Evaluate ERD in Python namespace local to this module:
     dj.ERD = myERD
