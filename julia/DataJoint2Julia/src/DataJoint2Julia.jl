@@ -3,7 +3,7 @@ module DataJoint2Julia
 using PyCall
 import Dates
 
-export dj, d2j, user_choice, d2jDecorate
+export dj, d2j, user_choice, d2jDecorate, my_input
 
 const dj             = PyNULL()
 const origERD        = PyNULL()
@@ -227,35 +227,38 @@ function connDecorate(origconn)
 end
 
 """
-function user_choice(prompt::String; default="no")
+function user_choice(prompt::String, choices=("yes", "no"); default=nothing)
 
-Prints prompt on the REPL and then waits for the user to type in either "yes"
-or "no" (case insensitive). An empty response returns the default.
-Any other response repeats the prompt.
-
-Optional parameter default MUST be either "yes" or "no" (case sensitive).
-
-RETURNS: either "yes" or "no", guaranteed to be in lower case.
+Prompts the user for confirmation.  The default value, if any, is capitalized.
+:param prompt: Information to display to the user.
+:param choices: an iterable of possible choices.
+:param default: default choice. If nothing, user MUST answer with an explicit choice.
+:return: the user's choice, guaranteed to be in lower case.
 
 """
-function user_choice(prompt::String; default="no")
-   if default == "yes"
-      print(prompt, " [Yes, no]: ")
-   elseif default == "no"
-      print(prompt, " [yes, No]: ")
-   else
-      error("default should be either \"yes\" or \"no\".")
-   end
+function user_choice(prompt::String, choices=("yes", "no"); default=nothing)
+    @assert default==nothing || any(default .== choices) "default must be one of the choices"
+    prompt = prompt * " Z["
+    for ch in choices
+        prompt = prompt * (ch==default ? titlecase(ch) : ch) * ", "
+    end
+    prompt = prompt[1:end-2] * "] "
 
-   str = lowercase(chomp(readline()))
-   if isempty(str)
-      str = default
-   end
+    str = ""
+    while !any(str .== choices)
+        print(prompt)
+        str = lowercase(chomp(readline()))
+        if isempty(str)
+            str = default
+        end
+    end
+    return str
+end
 
-   if str != "yes" && str != "no"
-      str = user_choice(prompt, default=default)
-   end
-   return str
+
+function my_input(prompt::String="")
+    print(prompt)
+    return chomp(readline())
 end
 
 
@@ -302,7 +305,7 @@ end
 function __init__()
     # When experimenting, we use our local datajoint. Remove the next
     # line to use the system datajoint.
-    pushfirst!(PyVector(pyimport("sys")."path"), "../../datajoint-python")
+    # pushfirst!(PyVector(pyimport("sys")."path"), "../../datajoint-python")
     # Next line is PyCall,jl trick for persistent variables in precompiled modules
     copy!(dj, pyimport("datajoint"))
     copy!(origERD, dj.ERD)
@@ -310,7 +313,18 @@ function __init__()
     # Do dj.conn user dialogs in Julia:
     dj.conn = decorateFunction(dj.conn, preFunction = connCheckUserDialogItems)
 
-    # Do schema.drop() user dialogs in Julia:
+    # Replace Python user_choice() with equivalent Julia user_choice(),
+    # to avoid issues in Jupyter notebooks:
+    dj.utils.user_choice = user_choice
+    # And reload dj modules that use user_choice(), so they now point to the
+    # new version of the function:
+    pyimport("importlib")."reload"(dj.admin)
+    pyimport("importlib")."reload"(dj.table)
+    pyimport("importlib")."reload"(dj.migrate)
+
+    # datajoint imports submodule schema.py, but then from there imports
+    # class Schema as schema; this hides the submodule name and we cannot
+    # reload it. So, do schema.drop() user dialogs in Julia:
     py"""
     def __newSchemaDrop(origSchemaDrop):
         def decorated(self, force=False, *args, **kwargs):
