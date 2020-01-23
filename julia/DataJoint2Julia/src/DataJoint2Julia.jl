@@ -328,7 +328,8 @@ function __init__()
     Jdj = pyimport("datajointJulia")
 
     function myprint(vars...;kwargs...)
-        println("here")
+        # Uncomment next line for debugging
+        # println("debugging-- in Julia myprint()")
         println(vars...;kwargs...)
     end
 
