@@ -327,20 +327,36 @@ function __init__()
     pushfirst!(PyVector(pyimport("sys")."path"), "./DataJoint2Julia/src/")
     Jdj = pyimport("datajointJulia")
 
+    function myprint(vars...;kwargs...)
+        println("here")
+        println(vars...;kwargs...)
+    end
+
     py"""
-    def newTableDrop(self, *args, **kwargs):
-         $Jdj.table.Table.drop(self, *args, user_choice_fn = $julia_user_choice, **kwargs)
-
-    def newTableDelete(self, *args, **kwargs):
-        $Jdj.table.Table.delete(self, *args, user_choice_fn = $julia_user_choice, **kwargs)
-
-    def newTableAlter(self, *args, **kwargs):
-        $Jdj.table.Table.alter(self, *args, user_choice_fn = $julia_user_choice, **kwargs)
+    def newConnectionInit(self, *args, **kwargs):
+         $Jdj.connection.Connection.__init__(self, *args, print_fn = println, **kwargs)
 
     """
-    dj.table.Table.drop   = py"newTableDrop"
-    dj.table.Table.delete = py"newTableDelete"
-    dj.table.Table.alter  = py"newTableAlter"
+    dj.connection.__init__ = py"newConnectionInit"
+
+    py"""
+    def newTableDrop(self, *args, **kwargs):
+         $Jdj.table.Table.drop(self, *args, user_choice_fn = $julia_user_choice, print_fn=$myprint, **kwargs)
+
+    def newTableDelete(self, *args, **kwargs):
+        $Jdj.table.Table.delete(self, *args, user_choice_fn = $julia_user_choice, print_fn=$myprint, **kwargs)
+
+    def newTableAlter(self, *args, **kwargs):
+        $Jdj.table.Table.alter(self, *args, user_choice_fn = $julia_user_choice, print_fn=$myprint, **kwargs)
+
+    def newTableDescribe(self, *args, **kwargs):
+        $Jdj.table.Table.describe(self, *args, print_fn=$myprint, **kwargs)
+
+    """
+    dj.table.Table.drop      = py"newTableDrop"
+    dj.table.Table.delete    = py"newTableDelete"
+    dj.table.Table.alter     = py"newTableAlter"
+    dj.table.Table.describe  = py"newTableDescribe"
 
     py"""
     def newSchemaDrop(self, *args, **kwargs):
@@ -352,11 +368,12 @@ function __init__()
     # The following are not methods of objects, so things are much simpler
     # we don't need to worry about "self" and we can stay within Julia:
     dj.conn = (vars...; kwargs...) ->
-        Jdj.connection.conn(vars...; input_fn=julia_input, getpass_fn=julia_getpass, kwargs...)
+        Jdj.connection.conn(vars...; input_fn=julia_input, getpass_fn=julia_getpass, print_fn=myprint, kwargs...)
     dj.set_password = (vars...; kwargs...) ->
-        Jdj.admin.set_password(vars...; getpass_fn=julia_getpass, user_choice_fn=julia_user_choice, kwargs...)
+        Jdj.admin.set_password(vars...; getpass_fn=julia_getpass, user_choice_fn=julia_user_choice,
+        print_fn=myprint, kwargs...)
     dj.kill = (vars...; kwargs...) ->
-        Jdj.admin.kill(vars...; input_fn=julia_input, kwargs...)
+        Jdj.admin.kill(vars...; input_fn=julia_input, print_fn=myprint, kwargs...)
     dj.utils.user_choice = (vars...; kwargs...) ->
         Jdj.utils.user_choice(vars...; input_fn=julia_input, kwargs...)
     dj.migrate.migrate_dj011_external_blob_storage_to_dj012 = (vars...; kwargs...) ->

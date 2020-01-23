@@ -71,14 +71,17 @@ class Table(QueryExpression):
         else:
             self._log('Declared ' + self.full_table_name)
 
-    def alter(self, prompt=True, context=None, *, user_choice_fn=user_choice):
+    def alter(self, prompt=True, context=None, *, user_choice_fn=user_choice, print_fn=print):
         """
         Alter the table definition from self.definition
-        
+
         :kwparam user_choice_fn  function object for function that interacts with user
                                  through dialog boxes. Introduced so that Julia users
                                  can call the method while avoiding Python dialog boxes,
                                  which appear to crash in Juia Jupyter notebooks
+        :kwparam print_fn  function object for printing to stdout. Introduced so that
+                           Julia users can call the method and still see print output
+                           in Juia Jupyter notebooks
         """
         if self.connection.in_transaction:
             raise DataJointError('Cannot update table declaration inside a transaction, '
@@ -91,7 +94,7 @@ class Table(QueryExpression):
         sql, external_stores = alter(self.definition, old_definition, context)
         if not sql:
             if prompt:
-                print('Nothing to alter.')
+                print_fn('Nothing to alter.')
         else:
             sql = "ALTER TABLE {tab}\n\t".format(tab=self.full_table_name) + ",\n\t".join(sql)
             if not prompt or user_choice_fn(sql + '\n\nExecute?') == 'yes':
@@ -105,7 +108,7 @@ class Table(QueryExpression):
                     pass
                 else:
                     if prompt:
-                        print('Table altered')
+                        print_fn('Table altered')
                     self._log('Altered ' + self.full_table_name)
 
     @property
@@ -361,7 +364,7 @@ class Table(QueryExpression):
         self._log(query[:255])
         return count
 
-    def delete(self, verbose=True, *, user_choice_fn=user_choice):
+    def delete(self, verbose=True, *, user_choice_fn=user_choice, print_fn=print):
         """
         Deletes the contents of the table and its dependent tables, recursively.
         User is prompted for confirmation if config['safemode'] is set to True.
@@ -371,6 +374,9 @@ class Table(QueryExpression):
                                  through dialog boxes. Introduced so that Julia users
                                  can call the method while avoiding Python dialog boxes,
                                  which appear to crash in Juia Jupyter notebooks
+        :kwparam print_fn  function object for printing to stdout. Introduced so that
+                           Julia users can call the method and still see print output
+                           in Juia Jupyter notebooks
         """
         conn = self.connection
         already_in_transaction = conn.in_transaction
@@ -414,7 +420,7 @@ class Table(QueryExpression):
                         if isinstance(r, _RenameMap) else r)
                     for r in restrictions[name]])
         if safe:
-            print('About to delete:')
+            print_fn('About to delete:')
 
         if not already_in_transaction:
             conn.start_transaction()
@@ -425,7 +431,7 @@ class Table(QueryExpression):
                     count = table.delete_quick(get_count=True)
                     total += count
                     if (verbose or safe) and count:
-                        print('{table}: {count} items'.format(table=name, count=count))
+                        print_fn('{table}: {count} items'.format(table=name, count=count))
         except:
             # Delete failed, perhaps due to insufficient privileges. Cancel transaction.
             if not already_in_transaction:
@@ -434,22 +440,22 @@ class Table(QueryExpression):
         else:
             assert not (already_in_transaction and safe)
             if not total:
-                print('Nothing to delete')
+                print_fn('Nothing to delete')
                 if not already_in_transaction:
                     conn.cancel_transaction()
             else:
                 if already_in_transaction:
                     if verbose:
-                        print('The delete is pending within the ongoing transaction.')
+                        print_fn('The delete is pending within the ongoing transaction.')
                 else:
                     if not safe or user_choice_fn("Proceed?", default='no') == 'yes':
                         conn.commit_transaction()
                         if verbose or safe:
-                            print('Committed.')
+                            print_fn('Committed.')
                     else:
                         conn.cancel_transaction()
                         if verbose or safe:
-                            print('Cancelled deletes.')
+                            print_fn('Cancelled deletes.')
 
     def drop_quick(self):
         """
@@ -464,7 +470,7 @@ class Table(QueryExpression):
         else:
             logger.info("Nothing to drop: table %s is not declared" % self.full_table_name)
 
-    def drop(self, *, user_choice_fn = user_choice):
+    def drop(self, *, user_choice_fn = user_choice, print_fn=print):
         """
         Drop the table and all tables that reference it, recursively.
         User is prompted for confirmation if config['safemode'] is set to True.
@@ -473,6 +479,10 @@ class Table(QueryExpression):
                                  through dialog boxes. Introduced so that Julia users
                                  can call the method while avoiding Python dialog boxes,
                                  which appear to crash in Juia Jupyter notebooks
+        :kwparam print_fn  function object for printing to stdout. Introduced so that
+                           Julia users can call the method and still see print output
+                           in Juia Jupyter notebooks
+
         """
         if self.restriction:
             raise DataJointError('A relation with an applied restriction condition cannot be dropped.'
@@ -483,12 +493,12 @@ class Table(QueryExpression):
                   if not table.isdigit()]
         if config['safemode']:
             for table in tables:
-                print(table, '(%d tuples)' % len(FreeTable(self.connection, table)))
+                print_fn(table, '(%d tuples)' % len(FreeTable(self.connection, table)))
             do_drop = user_choice_fn("Proceed?", default='no') == 'yes'
         if do_drop:
             for table in reversed(tables):
                 FreeTable(self.connection, table).drop_quick()
-            print('Tables dropped.  Restart kernel.')
+            print_fn('Tables dropped.  Restart kernel.')
 
     @property
     def size_on_disk(self):
@@ -503,8 +513,11 @@ class Table(QueryExpression):
     def show_definition(self):
         raise AttributeError('show_definition is deprecated. Use the describe method instead.')
 
-    def describe(self, context=None, printout=True):
+    def describe(self, context=None, printout=True, *, print_fn=print):
         """
+        :kwparam print_fn  function object for printing to stdout. Introduced so that
+                           Julia users can call the method and still see print output
+                           in Juia Jupyter notebooks
         :return:  the definition string for the relation using DataJoint DDL.
         """
         if context is None:
@@ -567,7 +580,7 @@ class Table(QueryExpression):
                 unique='UNIQUE ' if v['unique'] else '',
                 attrs=', '.join(k))
         if printout:
-            print(definition)
+            print_fn(definition)
         return definition
 
     def _update(self, attrname, value=None):

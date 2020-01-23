@@ -56,7 +56,8 @@ def translate_query_error(client_error, query):
 logger = logging.getLogger(__name__)
 
 
-def conn(host=None, user=None, password=None, init_fun=None, reset=False, use_tls=None, *, input_fn=input, getpass_fn=getpass):
+def conn(host=None, user=None, password=None, init_fun=None, reset=False, \
+use_tls=None, *, input_fn=input, getpass_fn=getpass, print_fn=print):
     """
     Returns a persistent connection object to be shared by multiple modules.
     If the connection is not yet established or reset=True, a new connection is set up.
@@ -79,6 +80,9 @@ def conn(host=None, user=None, password=None, init_fun=None, reset=False, use_tl
                        user string through a dialog box. Introduced so that Julia
                        users can call the method while avoiding Python dialog boxes,
                        which appear to crash in Juia Jupyter notebooks
+    :kwparam print_fn  function object for printing to stdout. Introduced so that
+                       Julia users can call the method and still see print output
+                       in Juia Jupyter notebooks
 
     """
     if not hasattr(conn, 'connection') or reset:
@@ -91,7 +95,7 @@ def conn(host=None, user=None, password=None, init_fun=None, reset=False, use_tl
             password = getpass_fn(prompt="Please enter DataJoint password: ")
         init_fun = init_fun if init_fun is not None else config['connection.init_function']
         use_tls = use_tls if use_tls is not None else config['database.use_tls']
-        conn.connection = Connection(host, user, password, None, init_fun, use_tls)
+        conn.connection = Connection(host, user, password, None, init_fun, use_tls, print_fn=print_fn)
     return conn.connection
 
 
@@ -108,9 +112,12 @@ class Connection:
     :param port: port number
     :param init_fun: connection initialization function (SQL)
     :param use_tls: TLS encryption option
+    :kwparam print_fn  function object for printing to stdout. Introduced so that
+                       Julia users can call the method and still see print output
+                     in Juia Jupyter notebooks
     """
 
-    def __init__(self, host, user, password, port=None, init_fun=None, use_tls=None):
+    def __init__(self, host, user, password, port=None, init_fun=None, use_tls=None, *, print_fn = print):
         if ':' in host:
             # the port in the hostname overrides the port argument
             host, port = host.split(':')
@@ -122,7 +129,7 @@ class Connection:
             self.conn_info['ssl'] = use_tls if isinstance(use_tls, dict) else {'ssl': {}}
         self.conn_info['ssl_input'] = use_tls
         self.init_fun = init_fun
-        print("Connecting {user}@{host}:{port}".format(**self.conn_info))
+        print_fn("Connecting {user}@{host}:{port}".format(**self.conn_info))
         self._conn = None
         self.connect()
         if self.is_connected:
