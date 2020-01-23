@@ -7,10 +7,14 @@ avoiding Python dialog boxes, which appear to crash in Juia Jupyter notebooks
 Will put in a pull request to make these part of datajoint-python repo itself
 """
 
-__all__ = ['table']
+__all__ = ['table', 'schema', 'connection', 'admin', 'utils']
 
-from .table import drop as tableDrop
-
+from .table      import Table       as tableTable  # here just to get the .table symbols available
+from .schema     import Schema      as schemaSchema
+from .connection import conn        as connectionCon
+from .admin      import kill        as adminKill
+from .utils      import user_choice as utilsUserChoice
+from .migrate    import migrate_dj011_external_blob_storage_to_dj012 as migrateFunction
 
 # __author__ = "DataJoint Contributors"
 # __date__ = "February 7, 2019"
