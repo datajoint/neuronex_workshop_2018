@@ -3,12 +3,10 @@ module DataJoint2Julia
 using PyCall
 import Dates
 
-export dj, d2j, user_choice, open_schemas
-export d2jDecorate
+export dj, d2j, user_choice, d2jDecorate
 
-const dj           = PyNULL()
-const origERD      = PyNULL()
-const open_schemas = PyNULL()
+const dj             = PyNULL()
+const origERD        = PyNULL()
 
 include("d2j.jl")
 
@@ -35,14 +33,8 @@ function d2jDecorate(dj_class_ex, schema)
    if !schema.exists
        error("Schema $(schema.database) does not exist on the server")
    end
-   # os = convert(Dict{String,Any}, open_schemas)
-   # if !haskey(os, schema.database)
-   #     error("Internal DataJoint2Julia error: can't find a record in open_schemas of schema `$schema.database`")
-   # end
 
    py"""
-   # $$name = $open_schemas[$(schema.database)]($dj_class_ex, context=locals())
-   # print(locals())
    $$name = $schema($dj_class_ex, context=locals())
    """
 
@@ -76,8 +68,8 @@ within Python.
 """
 
 py"""
-def __decorateMethod(origMethod, *, preMethod=None, postMethod=None):
-   '''decorateMethod(origMethod, *, preMethod=None, postMethod=None):
+def __decorateMethod(origMethod, *, newMethod=None, preMethod=None, postMethod=None):
+   '''decorateMethod(origMethod, *, newMethod=None, preMethod=None, postMethod=None):
 
    Python function:
    Decorates a class method, adding possible preprocessing and postprocessing.
@@ -86,9 +78,11 @@ def __decorateMethod(origMethod, *, preMethod=None, postMethod=None):
    of the decorated method will be the post-processing function's output
 
    :param     origMethod     The original class method to be decorated
+
    :kw_param  preMethod      If other than None, should be a function that can
                              take self, followed by whatever arguments origMethod
                              Any outputs from this function are ignored.
+
    :kw_param  postMethod     If other than None, should be a function that can
                              take self, followed by whatever output the origMethod
                              produced, followed by whatever further arguments
@@ -118,7 +112,9 @@ def __decorateMethod(origMethod, *, preMethod=None, postMethod=None):
 
 """
 
-decorateMethod = py"__decorateMethod"
+
+
+
 
 
 # =========== decorating functions ===============
@@ -262,41 +258,35 @@ function user_choice(prompt::String; default="no")
    return str
 end
 
-function schemaDecorate(origSchema)
-    function decoratedSchema(vars... ; kwargs...)
-        out = origSchema(vars... ; kwargs...)
-        # py"""
-        # $open_schemas[$out.database] = $origSchema($out.database, locals())
-        # """
-        out.drop = schemaDecorateDrop(out, out.drop)
-        return out
+
+"""
+preSchemaDrop(self, force=false, vars... ; kwargs...)
+
+self should be a schema object. Returns true if ok to drop the schema
+from the MySQL server; returns false if not.
+"""
+function preSchemaDrop(self, force=false, vars... ; kwargs...)
+    # if the schema doesn't even exist on the server, do nothing, return:
+    if !self.exists
+        # from schema.py:
+        py"""
+        import logging
+        logger = logging.getLogger('datajoint.schema')
+        logger.info("Schema named `{database}` does not exist. Doing nothing.".format(database=$self.database))
+        """
+        return false
     end
-    return decoratedSchema
+    # If we're in safemode and not forced, prompt the user whether this is ok:
+    if !force && dj.config.__getitem__("safemode")
+        if user_choice("Proceed to delete entire schema `$(self.database)` ?", default="no") == "no"
+            return false
+        end
+    end
+    # ok, all is good, go ahead and drop:
+    return true
 end
 
-function schemaDecorateDrop(self, origDrop)
-    function decoratedDrop(force=false, vars... ; kwargs...)
-        # if the schema doesn't even exist on the server, do nothing, return:
-        if !self.exists
-            # from schema.py:
-            py"""
-            import logging
 
-            logger = logging.getLogger('datajoint.schema')
-            logger.info("Schema named `{database}` does not exist. Doing nothing.".format(database=$self.database))
-            """
-            return
-        end
-        # If we're in safemode, prompt the user whether this is ok:
-        if !force && dj.config.__getitem__("safemode")
-            if user_choice("Proceed to delete entire schema `$(self.database)` ?", default="no") == "no"
-                return
-            end
-        end
-        origDrop(true, vars...; kwargs...)
-    end
-    return decoratedDrop
-end
 
 """
 When evaluating the ERD, it should be done in the same Python namespace
@@ -321,7 +311,16 @@ function __init__()
     dj.conn = decorateFunction(dj.conn, preFunction = connCheckUserDialogItems)
 
     # Do schema.drop() user dialogs in Julia:
-    dj.schema = schemaDecorate(dj.schema)
+    py"""
+    def __newSchemaDrop(origSchemaDrop):
+        def decorated(self, force=False, *args, **kwargs):
+            flag = $preSchemaDrop(self, force, *args, **kwargs)
+            if not flag:
+                return
+            origSchemaDrop(self, True, *args, **kwargs)
+        return decorated
+    """
+    dj.schema.drop = py"__newSchemaDrop"(dj.schema.drop)
 
     # Evaluate ERD in Python namespace local to this module:
     dj.ERD = myERD
@@ -345,4 +344,4 @@ function __init__()
 
 end
 
-end
+end  # MODULE END
