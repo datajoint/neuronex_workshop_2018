@@ -61,23 +61,17 @@ Neuron = d2jDecorate(Neuron, schema)
 
 # Known Issues
 
-* ~While Python function calls that use dialog boxes work fine within a Julia REPL in the terminal or in Atom, they cause an error in Julia Jupyter notebooks.  This means that in a Julia Jupyter notebook, `delete()` and `drop()` cannot be called without setting `config`'s `safemode` to false, `conn()` also cannot be called without setting the username and password into the local config file first, and `set_password()` cannot be called at all (you need to do it from a REPL).~
-
-   * This issue has been now partially resolved -- `table.delete()`, `table.drop()` and `dj.set_password()` still to go, but in progress
-
 * displaying the ERD works in Julia Jupyter notebooks, but does not work in Julia REPL at terminal or Atom. (Currently it's not working for me in Python from the terminal either.)
 
 ## Improvements TO-DO
-* ~`d2j()` should be in a Module, not as a bare function pulled in through `include()`.~
-   * Done
-* We should decorate each table class in Julia (in addition and on top of decorating with `schema` in Python), so as to 
-  * (1) ~automatically wrap `fetch()` calls in `d2j()` to return Julia types;~
-     * Done - decorating fetch() was not a good idea becaue it is called multiple times internally. Solution: new jfetch method
-  * (2) ~overload the Python function calls that need dialog boxes with Julia functions, so that they not only play nice in REPLs but also in Jupyter notebooks.  These functions include `dj.conn()`, `dj.set_password`, `dj.delete()`, and `dj.drop()`.  One idea would be to start a pull request to modify datajoint's code for those Python functions so that optional parameters can supply what the dialog boxes would have ask for, and thus avoid the use of Python dialog boxes.~
-     * Done except for `dj.set_password()`, `table.delete()`, and `table.drop()?`
-     
+
+* DataJoint2Julia has only been tested on the material in the tutorials in the `julia` directory of this repo. Remains to be tested on further parts of datajoint.
      
 # Change Log
+
+### 2020-01-23 Enormous code simplification, solving a whole host of issues.
+
+* Julia's stdin and stdout on Jupyter notebooks not being the same as Python's stdin and stdout was causing problems in a ton of places, wherever text communication with the user was happening. The code got much simpler by overriding (before the Python datajoint module is imported), Python's `builtins.input`, `builtins.print` and `builtins.getpass` to Julia versions that talk to Julia's stdin and stdout.
 
 ### 2020-01-22
 
