@@ -3,7 +3,7 @@ module DataJoint2Julia
 using PyCall
 import Dates
 
-export dj, d2j, julia_user_choice, julia_getpass, julia_input
+export dj, d2j, julia_getpass, julia_input
 export d2jDecorate, decorateMethod
 
 const dj             = PyNULL()
@@ -12,12 +12,6 @@ const origERD        = PyNULL()
 decorateMethod       = PyNULL()
 include("d2j.jl")
 
-
-# pushfirst!(PyVector(pyimport("sys")."path"), "../../datajoint-python")
-# if PyVector(pyimport("sys")."path")[1] != ""
-#    # Then the following line is PyCall-ese for "add the current directory to the Python path"
-#    pushfirst!(PyVector(pyimport("sys")."path"), "")
-# end
 
 
 """
@@ -180,97 +174,6 @@ function decorateFunction(originalFunction; preFunction=nothing, postFunction=no
 end
 
 
-
-## =========  decorating table definitions  ==========
-
-
-
-
-## =========  decorating dj.conn()  ==========
-
-"""
-function connCheckUserDialogItems()
-
-Checks to see whether "database.host", "database.user", "database.password" are
-set in dj.config, if not, prompts user for them and sets them.
-
-Python dialog boxes seem to work fine in REPL but not un Julia Jupyter notebooks;
-this function is used, before running dj.conn(), to first run through Julia dialog
-boxes so no error occurs
-
-= PARAMETERS:
-
-- Ignores all passed parameters
-
-= SIDE EFFECTS:
-
-After running this function, each of "database.host", "database.user",
-"database.password" in dj.config will be guaranteed to be a non-empty string.
-
-"""
-function connCheckUserDialogItems(vars... ; kwargs...)
-    for k in ["database.host", "database.user", "database.password"]
-        if dj.config.__getitem__(k) == nothing || isempty(dj.config.__getitem__(k))
-            ans = ""
-            while isempty(ans)
-                print("Please enter ", k, ": ")
-                if k == "database.password"  # special case, hiding typed text
-                    sb = Base.getpass("")      # put user text into secret buffer
-                    ans = chomp(read(sb, String))  # turn that into a string
-                    Base.shred!(sb)    # thus losing all security, then shred secret buffer to rpevent warning message
-                else   # don't need to hide typed text
-                    ans = chomp(readline())
-                end
-            end
-            dj.config.__setitem__(k, ans)
-        end
-    end
-end
-##
-
-"""
-Used to decorate dj.conn() to first make sure
-user dialog boxes occur in Julia
-"""
-function connDecorate(origconn)
-    function decorated(vars... ; kwargs...)
-        connCheckUserDialogItems()
-        out = origconn(vars...; kwargs...)
-        return out
-    end
-    return decorated
-end
-
-"""
-function julia_user_choice(prompt::String, choices=("yes", "no"); default=nothing)
-
-Prompts the user for confirmation.  The default value, if any, is capitalized.
-:param prompt: Information to display to the user.
-:param choices: an iterable of possible choices.
-:param default: default choice. If nothing, user MUST answer with an explicit choice.
-:return: the user's choice, guaranteed to be in lower case.
-
-"""
-function julia_user_choice(prompt::String, choices=("yes", "no"); default=nothing)
-    @assert default==nothing || any(default .== choices) "default must be one of the choices"
-    prompt = prompt * " ["
-    for ch in choices
-        prompt = prompt * (ch==default ? titlecase(ch) : ch) * ", "
-    end
-    prompt = prompt[1:end-2] * "] "
-
-    str = ""
-    while !any(str .== choices)
-        print(prompt)
-        str = lowercase(chomp(readline()))
-        if isempty(str)
-            str = default
-        end
-    end
-    return str
-end
-
-
 """
 julia_input(prompt::String="")
 
@@ -313,76 +216,39 @@ end
 
 
 function __init__()
-    declarePythonEnvironmentFunctions()
-    copy!(decorateMethod, py"__decorateMethod")
-
-    # When experimenting, we use our local datajoint. Remove the next
-    # line to use the system datajoint.
-    pushfirst!(PyVector(pyimport("sys")."path"), "../../datajoint-python")
-    # Next line is PyCall,jl trick for persistent variables in precompiled modules
-    copy!(dj, pyimport("datajoint"))
-    copy!(origERD, dj.ERD)
-
-    # Put datajointJulia Python package into the path
-    pushfirst!(PyVector(pyimport("sys")."path"), "./DataJoint2Julia/src/")
-    Jdj = pyimport("datajointJulia")
-
+    # In Julia Jupyter notebooks, the Julia stdin and stdout are not
+    # the same as the Python stdin stdout. So here we replace Python's
+    # print, input, and getpass functions (which interact with stdin and
+    # stdout) with Julia versions, so they work ok in Julia Jupyter notebooks.
+    # These'll also work fine on the REPL.
     function myprint(vars...;kwargs...)
         # Uncomment next line for debugging
         # println("debugging-- in Julia myprint()")
         println(vars...;kwargs...)
     end
+    builtins = pyimport("builtins")
+    builtins.print = myprint  # could be println, but using this for debugging flexibility
+    builtins.input = julia_input
+    getpass  = pyimport("getpass")
+    getpass.getpass = julia_getpass
 
-    py"""
-    def newConnectionInit(self, *args, **kwargs):
-         $Jdj.connection.Connection.__init__(self, *args, print_fn = println, **kwargs)
+    # We don't really need the following, we're not decorating any methods
+    # any more, but here so we don't lose the knowledge of how to do it:
+    declarePythonEnvironmentFunctions()
+    copy!(decorateMethod, py"__decorateMethod")
 
-    """
-    dj.connection.__init__ = py"newConnectionInit"
+    # When experimenting, we use our local datajoint. Remove the next
+    # line to use the system datajoint.
+    # pushfirst!(PyVector(pyimport("sys")."path"), "../../datajoint-python")
 
-    py"""
-    def newTableDrop(self, *args, **kwargs):
-         $Jdj.table.Table.drop(self, *args, user_choice_fn = $julia_user_choice, print_fn=$myprint, **kwargs)
-
-    def newTableDelete(self, *args, **kwargs):
-        $Jdj.table.Table.delete(self, *args, user_choice_fn = $julia_user_choice, print_fn=$myprint, **kwargs)
-
-    def newTableAlter(self, *args, **kwargs):
-        $Jdj.table.Table.alter(self, *args, user_choice_fn = $julia_user_choice, print_fn=$myprint, **kwargs)
-
-    def newTableDescribe(self, *args, **kwargs):
-        $Jdj.table.Table.describe(self, *args, print_fn=$myprint, **kwargs)
-
-    """
-    dj.table.Table.drop      = py"newTableDrop"
-    dj.table.Table.delete    = py"newTableDelete"
-    dj.table.Table.alter     = py"newTableAlter"
-    dj.table.Table.describe  = py"newTableDescribe"
-
-    py"""
-    def newSchemaDrop(self, *args, **kwargs):
-         $Jdj.schema.Schema.drop(self, *args, user_choice_fn = $julia_user_choice, **kwargs)
-
-    """
-    dj.schema.drop = py"newSchemaDrop"
-
-    # The following are not methods of objects, so things are much simpler
-    # we don't need to worry about "self" and we can stay within Julia:
-    dj.conn = (vars...; kwargs...) ->
-        Jdj.connection.conn(vars...; input_fn=julia_input, getpass_fn=julia_getpass, print_fn=myprint, kwargs...)
-    dj.set_password = (vars...; kwargs...) ->
-        Jdj.admin.set_password(vars...; getpass_fn=julia_getpass, user_choice_fn=julia_user_choice,
-        print_fn=myprint, kwargs...)
-    dj.kill = (vars...; kwargs...) ->
-        Jdj.admin.kill(vars...; input_fn=julia_input, print_fn=myprint, kwargs...)
-    dj.utils.user_choice = (vars...; kwargs...) ->
-        Jdj.utils.user_choice(vars...; input_fn=julia_input, kwargs...)
-    dj.migrate.migrate_dj011_external_blob_storage_to_dj012 = (vars...; kwargs...) ->
-        Jdj.migrate.migrate_dj011_external_blob_storage_to_dj012(vars...; user_choice_fn=julia_user_choice, kwargs...)
-
+    # Next line is PyCall,jl trick for persistent variables in precompiled modules
+    copy!(dj, pyimport("datajoint"))
+    copy!(origERD, dj.ERD)
 
     # Evaluate ERD in Python namespace local to this module:
     dj.ERD = myERD
+
+
 
     # Have jfetch() be the same as fetch() but wrapped with d2j()
     # We don't decorate the Fetch object's __call__ function directly
