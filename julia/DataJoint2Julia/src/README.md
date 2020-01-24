@@ -2,7 +2,7 @@
 
 The things that need to be done so as to use [PyCall.jl](https://github.com/JuliaPy/PyCall.jl) to wrap [datajoint](https://datajoint.io/) for Julia are reasonably light:
 
-1. **Reformatting reads from the database.** The results of `fetch()` come back as `PyObject`. They need to be turned into Julia format. This is done in the `d2j()` within `d2j.jl`. The function is recursive so that arbitrarily deep structures are fully decoded. The convenience methods `jfetch()` and `jfetch1() are provided on tables to automatically do the `d2j` wrapping.
+1. **Reformatting reads from the database.** The results of `fetch()` come back as `PyObject`. They need to be turned into Julia format. This is done in the `d2j()` within `d2j.jl`. The function is recursive so that arbitrarily deep structures are fully decoded. The convenience methods `jfetch()` and `jfetch1()` are provided on tables to automatically do the `d2j` wrapping.
 
 2. **Avoiding problems with stdin and stdout in Julia Jupyter notebooks.** In Julia Jupyter notebooks, Python's `stdin` and `stdout` are not the same as Julia's. This means that ordinary Python functions `print()`, `input()` and `getpass()` functions don't work (even while they work fine on the Julia REPL). To solve this, before the Python datajoint module is loaded, Python's `builtins.print()`, `builtins.input()`, and `getpass.getpass()` are overriden to now point to Julia versions of the same functions, now talking to Julia's `sttdin` and `stdout`.
 
