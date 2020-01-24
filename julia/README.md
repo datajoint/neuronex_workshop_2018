@@ -66,6 +66,7 @@ Neuron = d2jDecorate(Neuron, schema)
 ## Improvements TO-DO
 
 * DataJoint2Julia has only been tested on the material in the tutorials in the `julia` directory of this repo. Remains to be tested on further parts of datajoint.
+* `d2j()` is probably not optimized for efficiency (neither in time nor memory space). Unclear whether that matters, though, since most of the time in fetching data from a table probably goes into accessing the server, not the `d2j` reformatting.
      
 # Change Log
 
