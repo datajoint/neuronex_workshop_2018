@@ -61,6 +61,8 @@ Neuron = d2jDecorate(Neuron, schema)
 
 # Known Issues
 
+Very few. All major known issues currently resolved. 
+
 * displaying the ERD works in Julia Jupyter notebooks, but does not work in Julia REPL at terminal or Atom. (Currently it's not working for me in Python from the terminal either.)
 
 ## Improvements TO-DO
