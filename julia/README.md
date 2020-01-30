@@ -17,7 +17,7 @@ For example, **this datajoint Python code**
 is functionally identical, and almost syntatically identical, to **this datajoint Julia code**
 
 ```
-((Mouse() & "dob = '2017-05-15'") * Session).fetch()
+((Mouse() & "dob = '2017-05-15'") * Session).jfetch()
 ```
 
 And **this datajoint Python code**
@@ -54,23 +54,42 @@ becomes this pretty similar **datajoint Julia code**
         println("Populated a neuron for mouse_id=$(key["mouse_id"]) on session_date=$(key["session_date"])")
     end
 end
-py"""
-Neuron = schema($Neuron)
-"""
-Neuron = py"Neuron"
+Neuron = d2jDecorate(Neuron, schema)
 ```
-
-
 
 
 
 # Known Issues
 
-* While Python function calls that use dialog boxes work fine within a Julia REPL in the terminal or in Atom, they cause an error in Julia Jupyter notebooks.  This means that in a Julia Jupyter notebook, `delete()` and `drop()` cannot be called without setting `config`'s `safemode` to false, `conn()` also cannot be called without setting the username and password into the local config file first, and `set_password()` cannot be called at all (you need to do it from a REPL).
-* displaying the ERD works in Julia Jupyter notebooks, but does not work in Julia REPL at terminal or Atom. (Currently it's not working for me in Python from the terminal either.)
+Not too many. All major known issues currently resolved. 
+
+* To get `dj.ERD()` to display in Julia REPL or Python REPL (it works out of the box in Jupyter notebooks), add `.draw()` to the call, as in `dj.ERD(schema).draw()` ~displaying the ERD works in Julia Jupyter notebooks, but does not work in Julia REPL at terminal or Atom. (Currently it's not working for me in Python from the terminal either.)~ . 
+* `schema.spawn_missing_classes()` doesn't quite work in Julia, needs fixing to address local context properly.
+* Should add the Python docstrings to the Julia functions `dj.ERD()` and `jfetch()` and `jfetch1()`. And if a new `spawn_missing_classes()` is made, to that one, too.
+* Add aliases for ERD, such as Diagram
+* Python's errors and warnings probably also need to be redirected in Julia Jupyter notebooks (like `print()` and `input()` were).
 
 ## Improvements TO-DO
-* `d2j()` should be in a Module, not as a bare function pulled in through `include()`.
-* We should decorate each table class in Julia (in addition and on top of decorating with `schema` in Python), so as to 
-  * (1) automatically wrap `fetch()` calls in `d2j()` to return Julia types; 
-  * (2) overload the Python function calls that need dialog boxes with Julia functions, so that they not only play nice in REPLs but also in Jupyter notebooks.  These functions include `dj.conn()`, `dj.set_password`, `dj.delete()`, and `dj.drop()`.  One idea would be to start a pull request to modify datajoint's code for those Python functions so that optional parameters can supply what the dialog boxes would have ask for, and thus avoid the use of Python dialog boxes. 
+
+* DataJoint2Julia has only been tested on the material in the tutorials in the `julia` directory of this repo. Remains to be tested on further parts of datajoint.
+* `d2j()` is probably not optimized for efficiency (neither in time nor memory space). Unclear whether that matters, though, since most of the time in fetching data from a table probably goes into accessing the server, not the `d2j` reformatting.
+     
+# Change Log
+
+### 2020-01-23 Enormous code simplification, solving a whole host of issues.
+
+* Julia's stdin and stdout on Jupyter notebooks not being the same as Python's stdin and stdout was causing problems in a ton of places, wherever text communication with the user was happening. The code got much simpler by overriding (before the Python datajoint module is imported), Python's `builtins.input`, `builtins.print` and `builtins.getpass` to Julia versions that talk to Julia's stdin and stdout.
+
+### 2020-01-22
+
+* important action: internally, `d2jDecorate()` now always call datajoint's `schema` with `context=locals()` explicitly defined. When this parameters is left empty, the `locals()` can be gleaned in Python, but could not be gleaned from within the `PyCall` Python environment, so we needed to specify them explicitly. Now done.
+* Figured out how to decorate a Python `__call__` method from Julia, but that turns out not to be a good idea for `fetch()` because it is called internally so often. New `jfetch()` method implemented instead.  
+* `d2jDecorate()` moved inside the Module: solution for `dj.ERD()` is to evaluate inside the module namespace.
+
+### 2020-01-17
+
+* Moved everything into a module, `DataJoint2Julia`, and now decorating the necessary datajoint Python functions so as to make it all more transparent to the user
+* `d2j()` greatly improved, now fully recursive, uses multiple dispatch, and also covers `Dict()` cases
+* decoration of tables with a schema, and `table.fetch()` decoration now all happen within a single call to `d2jDecorate()`
+* `dj.conn()`, `schema.drop()` now decorated so dialog boxes are in Julia and don't crash in Julia Jupyter notebooks
+
