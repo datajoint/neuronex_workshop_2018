@@ -66,6 +66,7 @@ Not too many. All major known issues currently resolved.
 * ~displaying the ERD works in Julia Jupyter notebooks, but does not work in Julia REPL at terminal or Atom. (Currently it's not working for me in Python from the terminal either.)~ . To get `dj.ERD()` to display in Julia REPL or Python REPL (it works out of the box in Jupyter notebooks), add `.draw()` to the call, as in `dj.ERD(schema).draw()`
 * `schema.spawn_missing_classes()` doesn't quite work in Julia, needs fixing to address local context properly.
 * Should add the Python docstrings to the Julia functions `dj.ERD()` and `jfetch()` and `jfetch1()`. And if a new `spawn_missing_classes()` is made, to that one, too.
+* Add aliases for ERD, such as Diagram
 
 ## Improvements TO-DO
 
